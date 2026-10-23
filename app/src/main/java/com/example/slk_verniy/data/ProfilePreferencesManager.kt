@@ -39,7 +39,7 @@ class ProfilePreferencesManager(private val context: Context) {
                 EmployeeProfile(
                     name = preferences[NAME_KEY] ?: "Анастасия Путилина",
                     position = preferences[POSITION_KEY] ?: "Специалист торговой сети",
-                    storeLocation = preferences[STORE_LOCATION_KEY] ?: "Магазин ВЕРНЫЙ, ул. Григория Соколова,34",
+                    storeLocation = preferences[STORE_LOCATION_KEY] ?: "ул. Григория Соколова,34",
                     employeeId = preferences[EMPLOYEE_ID_KEY] ?: "00001",
                     avatarUri = preferences[AVATAR_URI_KEY]
                 )
