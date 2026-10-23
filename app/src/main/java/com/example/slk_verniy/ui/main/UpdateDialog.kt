@@ -1,7 +1,5 @@
 package com.example.slk_verniy.ui.main
 
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -12,16 +10,18 @@ import androidx.compose.ui.unit.dp
 import com.example.slk_verniy.worker.ReleaseInfo
 import com.example.slk_verniy.worker.UpdateManager
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 @Composable
 fun UpdateDialog(
     releaseInfo: ReleaseInfo,
-    onDismiss: () -> Unit,
-    onUpdateClick: () -> Unit = {}
+    onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val progress by UpdateManager.downloadProgress.collectAsState()
+    val downloadedBytes by UpdateManager.downloadedBytes.collectAsState()
+    val totalBytes by UpdateManager.totalBytes.collectAsState()
     val error by UpdateManager.downloadError.collectAsState()
     var isDownloading by remember { mutableStateOf(false) }
 
@@ -49,7 +49,7 @@ fun UpdateDialog(
                     )
                 }
 
-                if (isDownloading) {
+                if (isDownloading || progress != null) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Column(
                         modifier = Modifier.fillMaxWidth(),
@@ -60,8 +60,23 @@ fun UpdateDialog(
                             progress = { currentProgress },
                             modifier = Modifier.fillMaxWidth()
                         )
+
+                        val downloadedMb = downloadedBytes / (1024.0 * 1024.0)
+                        val totalMb = totalBytes / (1024.0 * 1024.0)
+                        val percent = (currentProgress * 100).toInt().coerceIn(0, 100)
+
+                        val progressText = if (totalBytes > 0) {
+                            String.format(Locale.ROOT, "Загрузка: %d%% (%.1f MB из %.1f MB)", percent, downloadedMb, totalMb)
+                        } else if (downloadedBytes > 0) {
+                            String.format(Locale.ROOT, "Загрузка: %.1f MB", downloadedMb)
+                        } else if (currentProgress > 0f) {
+                            String.format(Locale.ROOT, "Загрузка: %d%%", percent)
+                        } else {
+                            "Подготовка к загрузке..."
+                        }
+
                         Text(
-                            text = if (currentProgress > 0f) "Загрузка: ${(currentProgress * 100).toInt()}%" else "Подготовка к загрузке...",
+                            text = progressText,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.primary
                         )
@@ -83,31 +98,18 @@ fun UpdateDialog(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                if (!isDownloading) {
-                    TextButton(
-                        onClick = {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(releaseInfo.releaseUrl)).apply {
-                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                            }
-                            context.startActivity(intent)
-                        }
-                    ) {
-                        Text("В браузере")
-                    }
-                }
-
                 Button(
                     onClick = {
                         isDownloading = true
                         scope.launch {
                             UpdateManager.downloadAndInstallApk(context, releaseInfo)
                             isDownloading = false
+                            onDismiss()
                         }
-                        onUpdateClick()
                     },
                     enabled = !isDownloading
                 ) {
-                    Text(if (isDownloading) "Загрузка..." else "Обновить")
+                    Text(if (isDownloading) "Загрузка..." else "Скачать")
                 }
             }
         },

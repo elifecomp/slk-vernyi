@@ -27,6 +27,12 @@ object UpdateManager {
     private val _downloadProgress = MutableStateFlow<Float?>(null)
     val downloadProgress = _downloadProgress.asStateFlow()
 
+    private val _downloadedBytes = MutableStateFlow<Long>(0L)
+    val downloadedBytes = _downloadedBytes.asStateFlow()
+
+    private val _totalBytes = MutableStateFlow<Long>(0L)
+    val totalBytes = _totalBytes.asStateFlow()
+
     private val _downloadError = MutableStateFlow<String?>(null)
     val downloadError = _downloadError.asStateFlow()
 
@@ -104,6 +110,8 @@ object UpdateManager {
                 return@withContext
             }
             _downloadProgress.value = 0f
+            _downloadedBytes.value = 0L
+            _totalBytes.value = 0L
             _downloadError.value = null
 
             try {
@@ -123,6 +131,7 @@ object UpdateManager {
                     }
 
                     val contentLength = body.contentLength()
+                    _totalBytes.value = contentLength
                     val apkFile = File(context.cacheDir, "update.apk")
                     if (apkFile.exists()) {
                         apkFile.delete()
@@ -136,6 +145,7 @@ object UpdateManager {
                             while (input.read(buffer).also { bytesRead = it } != -1) {
                                 output.write(buffer, 0, bytesRead)
                                 bytesCopied += bytesRead
+                                _downloadedBytes.value = bytesCopied
                                 if (contentLength > 0) {
                                     _downloadProgress.value = bytesCopied.toFloat() / contentLength.toFloat()
                                 }
@@ -157,7 +167,9 @@ object UpdateManager {
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     }
 
-                    context.startActivity(intent)
+                    withContext(Dispatchers.Main) {
+                        context.startActivity(intent)
+                    }
                 }
             } catch (e: Exception) {
                 _downloadError.value = e.localizedMessage ?: "Неизвестная ошибка скачивания"

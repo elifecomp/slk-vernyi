@@ -249,14 +249,7 @@ fun SettingsScreen(
                     releaseInfo?.let { info ->
                         UpdateDialog(
                             releaseInfo = info,
-                            onDismiss = { releaseInfo = null },
-                            onUpdateClick = {
-                                releaseInfo = null
-                                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(info.releaseUrl)).apply {
-                                    addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                                }
-                                context.startActivity(intent)
-                            }
+                            onDismiss = { releaseInfo = null }
                         )
                     }
 
