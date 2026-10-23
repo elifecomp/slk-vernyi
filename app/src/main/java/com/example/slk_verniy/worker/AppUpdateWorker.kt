@@ -18,66 +18,7 @@ import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import org.json.JSONObject
 import java.util.concurrent.TimeUnit
-
-data class ReleaseInfo(
-    val versionName: String,
-    val releaseUrl: String,
-    val releaseNotes: String?
-)
-
-object AppUpdateChecker {
-    private const val GITHUB_RELEASES_URL = "https://api.github.com/repos/elifecomp/slk-vernyi/releases/latest"
-    private val client = OkHttpClient()
-
-    fun isNewerVersion(current: String, latest: String): Boolean {
-        val cleanCurrent = current.removePrefix("v").removePrefix("V").trim()
-        val cleanLatest = latest.removePrefix("v").removePrefix("V").trim()
-
-        val currParts = cleanCurrent.split(".").mapNotNull { it.toIntOrNull() }
-        val latestParts = cleanLatest.split(".").mapNotNull { it.toIntOrNull() }
-
-        for (i in 0 until maxOf(currParts.size, latestParts.size)) {
-            val c = currParts.getOrElse(i) { 0 }
-            val l = latestParts.getOrElse(i) { 0 }
-            if (l > c) return true
-            if (l < c) return false
-        }
-        return cleanLatest != cleanCurrent && cleanLatest > cleanCurrent
-    }
-
-    fun checkForUpdate(currentVersion: String): ReleaseInfo? {
-        return runCatching {
-            val request = Request.Builder()
-                .url(GITHUB_RELEASES_URL)
-                .header("Accept", "application/vnd.github+json")
-                .header("User-Agent", "SLK-VERNIY-Android")
-                .build()
-
-            client.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) return@runCatching null
-                val bodyString = response.body.string()
-                val json = JSONObject(bodyString)
-                val tagName = json.optString("tag_name", json.optString("tagName", ""))
-                val htmlUrl = json.optString("html_url", json.optString("htmlUrl", "https://github.com/elifecomp/slk-vernyi/releases"))
-                val body = if (json.has("body")) json.optString("body") else null
-
-                if (tagName.isNotBlank() && isNewerVersion(currentVersion, tagName)) {
-                    ReleaseInfo(
-                        versionName = tagName,
-                        releaseUrl = htmlUrl,
-                        releaseNotes = body
-                    )
-                } else {
-                    null
-                }
-            }
-        }.getOrNull()
-    }
-}
 
 class AppUpdateWorker(
     appContext: Context,
@@ -161,7 +102,7 @@ class AppUpdateWorker(
             } catch (_: Exception) {
                 "1.0.0"
             }
-            val releaseInfo = AppUpdateChecker.checkForUpdate(currentVersion)
+            val releaseInfo = UpdateManager.checkForUpdate(currentVersion)
             if (releaseInfo != null) {
                 sendNotification(applicationContext, releaseInfo)
             }
