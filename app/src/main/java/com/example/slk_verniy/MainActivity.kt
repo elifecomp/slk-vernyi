@@ -13,15 +13,19 @@ import androidx.compose.ui.Modifier
 import com.example.slk_verniy.ui.main.MainScreen
 import com.example.slk_verniy.ui.splash.SplashScreen
 import com.example.slk_verniy.ui.theme.SLKVERNIYTheme
+import com.example.slk_verniy.worker.AppUpdateWorker
 import com.example.slk_verniy.worker.PaydayWorker
 import com.example.slk_verniy.worker.ShiftReminderWorker
+import com.example.slk_verniy.worker.ShiftTimingWorker
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         ShiftReminderWorker.schedule(applicationContext)
+        ShiftTimingWorker.schedule(applicationContext)
         PaydayWorker.schedule(applicationContext)
+        AppUpdateWorker.schedule(applicationContext)
         setContent {
             SLKVERNIYTheme {
                 var showSplash by remember { mutableStateOf(true) }

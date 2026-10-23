@@ -544,10 +544,10 @@ fun DayCell(
         contentColor
     }
 
-    val paydayBorder = if (isPayday) {
-        BorderStroke(2.dp, Color(0xFF2E7D32))
-    } else {
-        null
+    val cellBorder = when {
+        isToday -> BorderStroke(2.dp, Color.White)
+        isPayday -> BorderStroke(2.dp, Color(0xFF2E7D32))
+        else -> null
     }
 
     Surface(
@@ -555,7 +555,7 @@ fun DayCell(
             .clip(CircleShape),
         color = animatedBgColor,
         shape = CircleShape,
-        border = paydayBorder,
+        border = cellBorder,
         tonalElevation = if (isToday) 4.dp else 0.dp,
         shadowElevation = if (isSelected) 4.dp else 0.dp
     ) {

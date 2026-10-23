@@ -22,15 +22,19 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.example.slk_verniy.BuildConfig
 import com.example.slk_verniy.data.SalaryPreferencesManager
 import com.example.slk_verniy.data.SalarySettings
-import com.example.slk_verniy.worker.PaydayWorker
-import com.example.slk_verniy.worker.ShiftReminderWorker
+import com.example.slk_verniy.ui.main.UpdateDialog
+import com.example.slk_verniy.worker.AppUpdateChecker
+import com.example.slk_verniy.worker.ReleaseInfo
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
     private val salaryPreferencesManager = SalaryPreferencesManager(application)
@@ -74,6 +78,14 @@ fun SettingsScreen(
     val scrollState = rememberScrollState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+
+    val versionName = remember(context) {
+        try {
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: BuildConfig.VERSION_NAME
+        } catch (_: Exception) {
+            BuildConfig.VERSION_NAME
+        }
+    }
 
     var shiftRateInput by remember(salarySettings.shiftRate) {
         mutableStateOf(if (salarySettings.shiftRate > 0f) salarySettings.shiftRate.toString() else "")
@@ -166,123 +178,7 @@ fun SettingsScreen(
                 }
             }
 
-            // Notifications Card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                )
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Notifications,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            text = "Уведомления и напоминания",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
 
-                    // Shift Reminder info & test
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "Напоминания о сменах",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = FontWeight.Medium
-                                )
-                                Text(
-                                    text = "Ежедневно в 20:00 (если завтра рабочая смена)",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            OutlinedButton(
-                                onClick = {
-                                    ShiftReminderWorker.sendTestNotification(context)
-                                    scope.launch {
-                                        snackbarHostState.showSnackbar("Тестовое уведомление о смене отправлено")
-                                    }
-                                }
-                            ) {
-                                Text("Тест")
-                            }
-                        }
-                    }
-
-                    HorizontalDivider()
-
-                    // Payday & Advance info & test
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "Зарплата и аванс",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = FontWeight.Medium
-                                )
-                                Text(
-                                    text = "10-е число (Зарплата) и 25-е число (Аванс) в 09:00",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            OutlinedButton(
-                                onClick = {
-                                    PaydayWorker.sendTestNotification(context, true)
-                                    scope.launch {
-                                        snackbarHostState.showSnackbar("Тест уведомления о зарплате (10-е)")
-                                    }
-                                },
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text("Тест зарплаты")
-                            }
-
-                            OutlinedButton(
-                                onClick = {
-                                    PaydayWorker.sendTestNotification(context, false)
-                                    scope.launch {
-                                        snackbarHostState.showSnackbar("Тест уведомления об авансе (25-е)")
-                                    }
-                                },
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text("Тест аванса")
-                            }
-                        }
-                    }
-                }
-            }
 
             // App Info Card
             Card(
@@ -336,7 +232,7 @@ fun SettingsScreen(
                     SettingRow(
                         icon = Icons.Rounded.Verified,
                         label = "Версия",
-                        value = "1.0 (Build 2025)"
+                        value = versionName
                     )
 
                     SettingRow(
@@ -344,6 +240,59 @@ fun SettingsScreen(
                         label = "Пакет",
                         value = "com.example.slk_verniy"
                     )
+
+                    HorizontalDivider()
+
+                    var releaseInfo by remember { mutableStateOf<ReleaseInfo?>(null) }
+                    var isCheckingUpdate by remember { mutableStateOf(false) }
+
+                    releaseInfo?.let { info ->
+                        UpdateDialog(
+                            releaseInfo = info,
+                            onDismiss = { releaseInfo = null },
+                            onUpdateClick = {
+                                releaseInfo = null
+                                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(info.releaseUrl)).apply {
+                                    addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                context.startActivity(intent)
+                            }
+                        )
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            if (!isCheckingUpdate) {
+                                isCheckingUpdate = true
+                                scope.launch {
+                                    val info: ReleaseInfo? = withContext(Dispatchers.IO) {
+                                        AppUpdateChecker.checkForUpdate(versionName)
+                                    }
+                                    isCheckingUpdate = false
+                                    if (info != null) {
+                                        releaseInfo = info
+                                    } else {
+                                        snackbarHostState.showSnackbar("У вас установлена самая новая версия")
+                                    }
+                                }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isCheckingUpdate
+                    ) {
+                        if (isCheckingUpdate) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Проверка...")
+                        } else {
+                            Icon(Icons.Rounded.Update, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Проверить обновление")
+                        }
+                    }
                 }
             }
         }
