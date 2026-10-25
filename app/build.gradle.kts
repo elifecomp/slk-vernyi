@@ -1,3 +1,14 @@
+import java.util.Properties
+
+val localProperties = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) {
+        load(file.inputStream())
+    }
+}
+val yandexApiKey = localProperties.getProperty("YANDEX_API_KEY", "")
+val yandexFolderId = localProperties.getProperty("YANDEX_FOLDER_ID", "")
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -15,10 +26,12 @@ android {
         applicationId = "com.example.slk_verniy"
         minSdk = 26
         targetSdk = 37
-        versionCode = 7
-        versionName = "2.0.1"
+        versionCode = 8
+        versionName = "2.0.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "YANDEX_API_KEY", "\"$yandexApiKey\"")
+        buildConfigField("String", "YANDEX_FOLDER_ID", "\"$yandexFolderId\"")
     }
 
     buildTypes {
@@ -68,6 +81,7 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     implementation(libs.androidx.room.runtime)
     implementation(libs.coil.compose)
+    implementation(libs.lottie.compose)
     implementation(libs.converter.moshi)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.coroutines.core)

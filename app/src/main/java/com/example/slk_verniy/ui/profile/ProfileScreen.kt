@@ -111,6 +111,7 @@ fun ProfileScreen(
 
     Scaffold(
         modifier = modifier,
+        containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
                 title = { Text("Профиль сотрудника", fontWeight = FontWeight.Bold) },
@@ -143,7 +144,7 @@ fun ProfileScreen(
                     Spacer(modifier = Modifier.width(8.dp))
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.85f)
                 )
             )
         }

@@ -6,11 +6,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -23,9 +25,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.slk_verniy.BuildConfig
+import com.example.slk_verniy.data.PreferencesRepository
 import com.example.slk_verniy.data.SalaryPreferencesManager
 import com.example.slk_verniy.data.SalarySettings
 import com.example.slk_verniy.ui.main.UpdateDialog
+import com.example.slk_verniy.worker.AlarmScheduler
 import com.example.slk_verniy.worker.AppUpdateChecker
 import com.example.slk_verniy.worker.ReleaseInfo
 import kotlinx.coroutines.Dispatchers
@@ -38,6 +42,7 @@ import kotlinx.coroutines.withContext
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
     private val salaryPreferencesManager = SalaryPreferencesManager(application)
+    private val preferencesRepository = PreferencesRepository(application)
 
     companion object {
         val Factory: ViewModelProvider.Factory = viewModelFactory {
@@ -56,10 +61,91 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             initialValue = SalarySettings(0f)
         )
 
+    val notificationHour: StateFlow<Int> = preferencesRepository.notificationHour
+        .catch { emit(20) }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = 20
+        )
+
+    val notificationMinute: StateFlow<Int> = preferencesRepository.notificationMinute
+        .catch { emit(0) }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = 0
+        )
+
+    val shiftStartHour: StateFlow<Int> = preferencesRepository.shiftStartHour
+        .catch { emit(11) }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = 11
+        )
+
+    val shiftStartMinute: StateFlow<Int> = preferencesRepository.shiftStartMinute
+        .catch { emit(0) }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = 0
+        )
+
+    val shiftEndHour: StateFlow<Int> = preferencesRepository.shiftEndHour
+        .catch { emit(23) }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = 23
+        )
+
+    val shiftEndMinute: StateFlow<Int> = preferencesRepository.shiftEndMinute
+        .catch { emit(0) }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = 0
+        )
+
     fun updateSalarySettings(shiftRate: Float) {
         viewModelScope.launch {
             try {
                 salaryPreferencesManager.updateSalarySettings(shiftRate)
+            } catch (_: Exception) {
+                // Handle exception
+            }
+        }
+    }
+
+    fun updateNotificationTime(hour: Int, minute: Int) {
+        viewModelScope.launch {
+            try {
+                preferencesRepository.saveNotificationTime(hour, minute)
+                AlarmScheduler.scheduleAll(getApplication())
+            } catch (_: Exception) {
+                // Handle exception
+            }
+        }
+    }
+
+    fun updateShiftStartTime(hour: Int, minute: Int) {
+        viewModelScope.launch {
+            try {
+                preferencesRepository.saveShiftStartTime(hour, minute)
+                AlarmScheduler.scheduleAll(getApplication())
+            } catch (_: Exception) {
+                // Handle exception
+            }
+        }
+    }
+
+    fun updateShiftEndTime(hour: Int, minute: Int) {
+        viewModelScope.launch {
+            try {
+                preferencesRepository.saveShiftEndTime(hour, minute)
+                AlarmScheduler.scheduleAll(getApplication())
             } catch (_: Exception) {
                 // Handle exception
             }
@@ -75,6 +161,12 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
     val salarySettings by viewModel.salarySettings.collectAsState()
+    val notificationHour by viewModel.notificationHour.collectAsState()
+    val notificationMinute by viewModel.notificationMinute.collectAsState()
+    val shiftStartHour by viewModel.shiftStartHour.collectAsState()
+    val shiftStartMinute by viewModel.shiftStartMinute.collectAsState()
+    val shiftEndHour by viewModel.shiftEndHour.collectAsState()
+    val shiftEndMinute by viewModel.shiftEndMinute.collectAsState()
     val scrollState = rememberScrollState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -93,12 +185,13 @@ fun SettingsScreen(
 
     Scaffold(
         modifier = modifier,
+        containerColor = Color.Transparent,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("Настройки", fontWeight = FontWeight.Bold) },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.85f)
                 )
             )
         }
@@ -178,7 +271,203 @@ fun SettingsScreen(
                 }
             }
 
+            // Notification Time Configuration Card
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                )
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Notifications,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = "Время уведомлений",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
 
+                    Text(
+                        text = "Выберите время, когда вы хотите получать уведомления о сменах.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    val formattedStartTime = String.format("%02d:%02d", shiftStartHour, shiftStartMinute)
+                    val formattedEndTime = String.format("%02d:%02d", shiftEndHour, shiftEndMinute)
+                    val formattedReminderTime = String.format("%02d:%02d", notificationHour, notificationMinute)
+
+                    // 1. Shift Start Time
+                    OutlinedCard(
+                        onClick = {
+                            android.app.TimePickerDialog(
+                                context,
+                                { _, selectedHour, selectedMinute ->
+                                    viewModel.updateShiftStartTime(selectedHour, selectedMinute)
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar(
+                                            String.format("Начало смены изменено на %02d:%02d", selectedHour, selectedMinute)
+                                        )
+                                    }
+                                },
+                                shiftStartHour,
+                                shiftStartMinute,
+                                true
+                            ).show()
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Notifications,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    text = "Начало смены",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                            Text(
+                                text = formattedStartTime,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    // 2. Shift End Time
+                    OutlinedCard(
+                        onClick = {
+                            android.app.TimePickerDialog(
+                                context,
+                                { _, selectedHour, selectedMinute ->
+                                    viewModel.updateShiftEndTime(selectedHour, selectedMinute)
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar(
+                                            String.format("Окончание смены изменено на %02d:%02d", selectedHour, selectedMinute)
+                                        )
+                                    }
+                                },
+                                shiftEndHour,
+                                shiftEndMinute,
+                                true
+                            ).show()
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Notifications,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    text = "Окончание смены",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                            Text(
+                                text = formattedEndTime,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    // 3. Reminder Time
+                    OutlinedCard(
+                        onClick = {
+                            android.app.TimePickerDialog(
+                                context,
+                                { _, selectedHour, selectedMinute ->
+                                    viewModel.updateNotificationTime(selectedHour, selectedMinute)
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar(
+                                            String.format("Время напоминания изменено на %02d:%02d", selectedHour, selectedMinute)
+                                        )
+                                    }
+                                },
+                                notificationHour,
+                                notificationMinute,
+                                true
+                            ).show()
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Schedule,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    text = "Время напоминания (на завтра)",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                            Text(
+                                text = formattedReminderTime,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
+            }
 
             // App Info Card
             Card(

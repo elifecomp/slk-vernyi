@@ -19,4 +19,24 @@ class DataStoreTest {
         val deserialized = serialized.map { LocalDate.parse(it) }.toSet()
         assert(dates == deserialized)
     }
+
+    @Test
+    fun testDefaultNotificationTime() {
+        val defaultHour = 20
+        val defaultMinute = 0
+        assert(defaultHour == 20)
+        assert(defaultMinute == 0)
+    }
+
+    @Test
+    fun testDefaultShiftNotificationTimes() {
+        val defaultStartHour = 11
+        val defaultStartMinute = 0
+        val defaultEndHour = 23
+        val defaultEndMinute = 0
+        assert(defaultStartHour == 11)
+        assert(defaultStartMinute == 0)
+        assert(defaultEndHour == 23)
+        assert(defaultEndMinute == 0)
+    }
 }

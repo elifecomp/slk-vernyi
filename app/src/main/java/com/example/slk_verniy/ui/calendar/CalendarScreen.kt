@@ -2,6 +2,7 @@ package com.example.slk_verniy.ui.calendar
 
 import android.Manifest
 import android.os.Build
+import android.speech.tts.TextToSpeech
 import android.widget.Toast
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Person
@@ -33,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.example.slk_verniy.data.MonthlySalaryResult
+import com.example.slk_verniy.ui.components.AnimatedCatView
 import com.example.slk_verniy.worker.PaydayWorker
 import com.example.slk_verniy.worker.ShiftReminderWorker
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
@@ -43,6 +46,29 @@ import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.TextStyle
 import java.util.Locale
+
+private val catPhrases = listOf(
+    "Мяу! Чего тебе? Надеюсь, ты с едой, а не с тупыми вопросами.",
+    "Я тут вообще-то спал. У тебя есть веская причина меня будить?",
+    "Лапки не для работы, лапки — чтобы ими красоваться! 🐾",
+    "Мур-р-р... Ладно, так и быть, почеши меня за ушком, пока я добрый.",
+    "Человек, ты сегодня подозрительно долго залипаешь в экран. Иди насыпь корма!",
+    "Моя миска наполовину пуста! Это открытое неуважение к хозяюшке... то есть к хозяину!",
+    "Опять работаешь? Лучше бы коробку мне новую нашел, я в нее залезть хочу.",
+    "Мяу. Система работает стабильно, шерсть летит, всё под контролем.",
+    "Ты кто такой? Я тебя не звал, иди отсюда, кожаный. ...Шучу-шучу, дай пять!",
+    "Ладно, давай пообщаемся, но только чур без глупых шуток про тапки.",
+    "Мой внутренний голос подсказывает, что пора сделать перерыв и поспать часиков этак пятнадцать.",
+    "Хватит тыкать в меня пальцем! Нажимай аккуратнее, у меня стресс.",
+    "Мр-р-мяу! А ты неплох для двуногого. Уважение заслужил.",
+    "Если долго смотреть на телефон, в нем появится рыба. Проверь, я проверил — пока нет.",
+    "Я сегодня весь день продуктивно лежал на диване. А чего добился ты?",
+    "Осторожнее с кнопками, а то я сейчас лапой случайно режим самоуничтожения активирую!",
+    "Слушай, а давай забросим все дела и пойдем поедим влажного корма?",
+    "Мой внутренний голос подсказывает, что ты опять забыл про обновление статуса. Исправляйся!",
+    "Мяу--у... Жизнь боль, когда миска пуста, а человек занят ерундой.",
+    "Я кот простой: вижу кнопку — нажимаю, вижу еду — ем. Бери пример!"
+)
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Composable
@@ -86,6 +112,7 @@ fun CalendarScreen(
 
     Scaffold(
         modifier = modifier,
+        containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
                 title = { 
@@ -296,18 +323,23 @@ fun CalendarScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.85f),
                     titleContentColor = MaterialTheme.colorScheme.onSurface,
                     actionIconContentColor = MaterialTheme.colorScheme.onSurface
                 )
             )
         }
     ) { innerPadding ->
+        val layoutDirection = androidx.compose.ui.platform.LocalLayoutDirection.current
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
-                .background(MaterialTheme.colorScheme.background),
+                .padding(
+                    top = innerPadding.calculateTopPadding(),
+                    start = innerPadding.calculateStartPadding(layoutDirection),
+                    end = innerPadding.calculateEndPadding(layoutDirection),
+                    bottom = 0.dp
+                ),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Column(
@@ -325,19 +357,47 @@ fun CalendarScreen(
                 
                 HorizontalPager(
                     state = pagerState,
+                    verticalAlignment = Alignment.Top,
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f)
                 ) { page ->
                     val month = currentMonth.plusMonths((page - centerIndex).toLong())
-                    MonthView(
-                        month = month,
-                        selectedDate = selectedDate,
-                        getShiftType = viewModel::getShiftTypeForDate,
-                        onDateSelected = { viewModel.onDateSelected(it) },
-                        onDateLongClick = { dateForExtraShiftDialog = it }
-                    )
+                    Box(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = Alignment.TopCenter
+                    ) {
+                        MonthView(
+                            month = month,
+                            selectedDate = selectedDate,
+                            getShiftType = viewModel::getShiftTypeForDate,
+                            onDateSelected = { viewModel.onDateSelected(it) },
+                            onDateLongClick = { dateForExtraShiftDialog = it }
+                        )
+                    }
                 }
+
+                var tts by remember { mutableStateOf<TextToSpeech?>(null) }
+                DisposableEffect(context) {
+                    var textToSpeech: TextToSpeech? = null
+                    textToSpeech = TextToSpeech(context) { status ->
+                        if (status == TextToSpeech.SUCCESS) {
+                            textToSpeech?.language = Locale.forLanguageTag("ru")
+                        }
+                    }
+                    tts = textToSpeech
+                    onDispose {
+                        textToSpeech?.stop()
+                        textToSpeech?.shutdown()
+                    }
+                }
+
+                AnimatedCatView(
+                    onClick = {
+                        val phrase = catPhrases.random()
+                        tts?.speak(phrase, TextToSpeech.QUEUE_FLUSH, null, null)
+                    }
+                )
             }
         }
     }
@@ -461,7 +521,7 @@ fun MonthView(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 4.dp),
+            .padding(horizontal = 8.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         for (row in 0 until totalRows) {
@@ -486,7 +546,7 @@ fun MonthView(
                             isToday = isToday,
                             modifier = Modifier
                                 .weight(1f)
-                                .aspectRatio(0.85f)
+                                .aspectRatio(1f)
                                 .padding(2.dp),
                             onClick = { onDateSelected(date) },
                             onLongClick = { onDateLongClick(date) }
@@ -495,7 +555,7 @@ fun MonthView(
                         Spacer(
                             modifier = Modifier
                                 .weight(1f)
-                                .aspectRatio(0.85f)
+                                .aspectRatio(1f)
                                 .padding(2.dp)
                         )
                     }
@@ -550,11 +610,13 @@ fun DayCell(
         else -> null
     }
 
+    val cellShape = RoundedCornerShape(8.dp)
+
     Surface(
         modifier = modifier
-            .clip(CircleShape),
+            .clip(cellShape),
         color = animatedBgColor,
-        shape = CircleShape,
+        shape = cellShape,
         border = cellBorder,
         tonalElevation = if (isToday) 4.dp else 0.dp,
         shadowElevation = if (isSelected) 4.dp else 0.dp

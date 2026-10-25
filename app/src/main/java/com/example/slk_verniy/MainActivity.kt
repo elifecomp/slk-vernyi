@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import com.example.slk_verniy.ui.main.MainScreen
 import com.example.slk_verniy.ui.splash.SplashScreen
 import com.example.slk_verniy.ui.theme.SLKVERNIYTheme
+import com.example.slk_verniy.worker.AlarmScheduler
 import com.example.slk_verniy.worker.AppUpdateWorker
 import com.example.slk_verniy.worker.PaydayWorker
 import com.example.slk_verniy.worker.ShiftReminderWorker
@@ -22,6 +23,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        AlarmScheduler.scheduleAll(applicationContext)
         ShiftReminderWorker.schedule(applicationContext)
         ShiftTimingWorker.schedule(applicationContext)
         PaydayWorker.schedule(applicationContext)

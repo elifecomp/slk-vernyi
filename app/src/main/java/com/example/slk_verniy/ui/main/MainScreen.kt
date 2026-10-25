@@ -15,10 +15,12 @@ import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import com.example.slk_verniy.ui.calendar.CalendarScreen
+import com.example.slk_verniy.ui.components.AnimatedBackground
 import com.example.slk_verniy.ui.profile.ProfileScreen
 import com.example.slk_verniy.ui.settings.SettingsScreen
 import com.example.slk_verniy.worker.AppUpdateChecker
@@ -64,41 +66,46 @@ fun MainScreen(
         )
     }
 
-    Scaffold(
-        modifier = modifier,
-        bottomBar = {
-            NavigationBar {
-                tabs.forEachIndexed { index, tab ->
-                    NavigationBarItem(
-                        icon = { Icon(tab.icon, contentDescription = tab.title) },
-                        label = { Text(tab.title) },
-                        selected = selectedTabIndex == index,
-                        onClick = { selectedTabIndex = index }
-                    )
+    AnimatedBackground(modifier = modifier.fillMaxSize()) {
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            containerColor = Color.Transparent,
+            bottomBar = {
+                NavigationBar(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.85f)
+                ) {
+                    tabs.forEachIndexed { index, tab ->
+                        NavigationBarItem(
+                            icon = { Icon(tab.icon, contentDescription = tab.title) },
+                            label = { Text(tab.title) },
+                            selected = selectedTabIndex == index,
+                            onClick = { selectedTabIndex = index }
+                        )
+                    }
                 }
             }
-        }
-    ) { innerPadding ->
-        AnimatedContent(
-            targetState = selectedTabIndex,
-            transitionSpec = {
-                if (targetState > initialState) {
-                    slideInHorizontally { width -> width / 4 } + fadeIn() togetherWith
-                            slideOutHorizontally { width -> -width / 4 } + fadeOut()
-                } else {
-                    slideInHorizontally { width -> -width / 4 } + fadeIn() togetherWith
-                            slideOutHorizontally { width -> width / 4 } + fadeOut()
+        ) { innerPadding ->
+            AnimatedContent(
+                targetState = selectedTabIndex,
+                transitionSpec = {
+                    if (targetState > initialState) {
+                        slideInHorizontally { width -> width / 4 } + fadeIn() togetherWith
+                                slideOutHorizontally { width -> -width / 4 } + fadeOut()
+                    } else {
+                        slideInHorizontally { width -> -width / 4 } + fadeIn() togetherWith
+                                slideOutHorizontally { width -> width / 4 } + fadeOut()
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
+                label = "tab_transition"
+            ) { targetIndex ->
+                when (targetIndex) {
+                    0 -> CalendarScreen(modifier = Modifier.fillMaxSize())
+                    1 -> ProfileScreen(modifier = Modifier.fillMaxSize())
+                    2 -> SettingsScreen(modifier = Modifier.fillMaxSize())
                 }
-            },
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding),
-            label = "tab_transition"
-        ) { targetIndex ->
-            when (targetIndex) {
-                0 -> CalendarScreen(modifier = Modifier.fillMaxSize())
-                1 -> ProfileScreen(modifier = Modifier.fillMaxSize())
-                2 -> SettingsScreen(modifier = Modifier.fillMaxSize())
             }
         }
     }
